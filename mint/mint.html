@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Wise Buddhi OG Club</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="styles.css"> <!-- 외부 CSS 파일 연결 -->
+</head>
+<body>
+  <style>
+    h1 {
+      font-size: 16px;
+    }
+    /* PC 또는 태블릿, 대형 화면용 스타일 */
+    @media (min-width: 769px) {
+    h1 {
+        font-size: calc(16px + 1vw);
+    }
+  }
+
+    /* 모바일 기기, 소형 화면용 스타일 */
+    @media (max-width: 768px) {
+    h1 {
+        font-size: calc(16px + 2vw);
+    }
+  }
+</style>
+  <h1>Wise Buddhi OG Club</h1>
+
+  <div class="logo" style="display: flex; justify-content: flex-end;">
+    <a href="https://wisebuddhiclub.netlify.app"><img src="WBC_logo.png" alt="Wise Buddhi OG Club 로고"></a>
+    <a href="https://twitter.com/WiseBuddhiClub" target="_blank"><img src="twitter_logo.png" alt="트위터 로고 트위터 링크"></a>
+    <a href="https://discord.gg/XWcuSaurZS" target="_blank"><img src="discord_logo.png" alt="디스코드 로고 디스코드 링크"></a>
+  </div>
+  
+  <div id="box">
+    <p class="heading">Maximum mints at a time: 3</p>
+    <p class="heading">Maximum quantity per wallet: 30</p>
+    <div class="slideshow-container">
+      <!-- 이미지 파일을 자동으로 불러오는 JavaScript 코드 -->
+      <script>
+        const imageFolder = 'WBOCslide/';
+        const imageCount = 14;
+
+        for (let i = 1; i <= imageCount; i++) {
+          const img = document.createElement('img');
+          img.src = `${imageFolder}${i}.png`;
+          img.alt = 'NFT 이미지';
+          img.className = 'img';
+          document.querySelector('.slideshow-container').appendChild(img);
+        }
+      </script>
+    </div>
+    <button id="connectBtn" onclick="connectMetaMask()">MetaMask connection</button>
+    <div id="walletInfo">
+      <p class="data" id="walletAddress"></p>
+      <p class="data" id="balance"></p>
+      <p class="data" id="mintedAmount"></p>
+      <p class="data" id="remainingMintAmount"></p>
+    <div>
+      <p class="data">
+      <span class="date"> Enter NFT quantity: <input type="number" id="quantityInput" min="1" max="3" value="0" inputmode="numeric"></span>
+      </p>
+    </div>
+    
+    </div>
+    <button onclick="mintNFT()">NFT mint</button>
+  </div>
+  <!-- Ethers.js 라이브러리 로드 -->
+  <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+  <!-- Smart Contract ABI를 포함한 config.js 파일 로드 -->
+  <script src="config.js"></script>
+  <script>
+    let currentSlide = 0;
+    const slides = Array.from(document.querySelectorAll('.slideshow-container img'));
+
+    function showSlide(index) {
+      slides.forEach((slide, i) => {
+        if (i === index) {
+          slide.style.display = 'block';
+        } else {
+          slide.style.display = 'none';
+        }
+      });
+    }
+
+    function nextSlide() {
+      currentSlide = (currentSlide + 1) % slides.length;
+      showSlide(currentSlide);
+    }
+
+    window.addEventListener('load', function() {
+      showSlide(currentSlide);
+      setInterval(nextSlide, 300); // 0.3초마다 슬라이드 전환
+    });
+    // 이미지 로드 후 박스 크기 조정
+    window.addEventListener("load", function() {
+      var box = document.getElementById("box");
+      var img = document.querySelector("#box .img");
+
+      img.addEventListener("load", function() {
+        var imgWidth = img.width;
+        var imgHeight = img.height;
+
+        box.style.width = imgWidth + "px";
+        box.style.height = imgHeight + "px";
+      });
+    });
+
+    let walletAddress;
+    const contractAddress = "0x69a8eC9c3194dbF5A51b49d36f3f19a445FB9Ab1";
+    const maxMintAmount = 3; // 한 번에 민트할 수 있는 최대 수량
+    const maxWalletAmount = 30; // 지갑당 최대 보유 수량
+
+    // MetaMask 연결 여부 확인 및 초기화
+    async function checkMetaMaskConnection() {
+      if (typeof window.ethereum !== "undefined") {
+        await window.ethereum.enable();
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        walletAddress = await signer.getAddress();
+        document.getElementById("walletAddress").innerText = `Wallet Address: ${walletAddress}`;
+        showBalance();
+        showMintedAmount();
+        showMaxAmount(); // 최대 수량 정보 표시
+      } else {
+        alert("Install MetaMask to mint an NFT.");
+        return;
+      }
+    }
+
+    // 최대 수량 정보 표시
+    function showMaxAmount() {
+      document.getElementById("maxMintAmount").innerText = `Maximum amount of mint at one transaction: ${maxMintAmount}`;
+      document.getElementById("maxWalletAmount").innerText = `Maximum quantity per wallet: ${maxWalletAmount}`;
+    }
+
+    // 잔액 확인 및 표시
+    async function showBalance() {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const balance = await provider.getBalance(walletAddress);
+      const formattedBalance = ethers.utils.formatEther(balance);
+      document.getElementById("balance").innerText = `Balance: ${formattedBalance} ETH`;
+      document.getElementById("walletInfo").style.display = "block";
+      document.getElementById("connectBtn").style.display = "none";
+    }
+
+    // 민트한 수량 확인 및 표시
+    async function showMintedAmount() {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const contract = new ethers.Contract(contractAddress, contractABI, provider);
+      const walletMintedAmount = await contract.balanceOf(walletAddress);
+
+      const remainingMintAmount = Math.max(maxWalletAmount - parseInt(walletMintedAmount.toString()), 0); // 남은 민트 가능 수량
+
+      document.getElementById("mintedAmount").innerText = `Mint quantity: ${walletMintedAmount}`;
+      document.getElementById("remainingMintAmount").innerText = `Amount of mint left: ${remainingMintAmount}`;
+    }
+
+    // NFT 민트 함수
+    async function mintNFT() {
+      // 스마트 컨트랙트 주소
+      const contractAddress = "0x69a8eC9c3194dbF5A51b49d36f3f19a445FB9Ab1";
+
+      // 수량 입력값 가져오기
+      const quantityInput = document.getElementById("quantityInput");
+      const quantity = parseInt(quantityInput.value);
+
+      // Web3 공급자 설정
+      if (typeof window.ethereum !== 'undefined') {
+        await window.ethereum.enable();
+
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+
+        // 스마트 컨트랙트와 연결
+        const contract = new ethers.Contract(contractAddress, contractABI, signer);
+
+        try {
+          // 수량 유효성 검사
+          if (quantity < 1 || quantity > maxMintAmount) {
+            alert(`Please enter 1 - ${maxMintAmount} `);
+            return;
+          }
+
+          // 최대 보유 수량 확인
+          const walletMintedAmount = await contract.balanceOf(walletAddress);
+          if (walletMintedAmount.add(quantity) > maxWalletAmount) {
+            alert('You can no longer create NFTs. You have exceeded the maximum quantity you can have.');
+            return;
+          }
+
+          // NFT 민트하기
+          const transaction = await contract.mintNFTFromWeb(quantity, { value: ethers.utils.parseEther("0.05").mul(quantity) });
+          await transaction.wait();
+
+          // 민트 완료 알림
+          alert('NFT mint is complete.');
+
+          // 민트한 수량 확인 및 업데이트
+          showMintedAmount();
+
+          // 지갑 잔액 업데이트
+          showBalance();
+
+        } catch (error) {
+          // 오류 발생 시 알림
+          console.log(error);
+
+          if (error.code === 4001) { // MetaMask의 사용자 거부 오류 코드
+             alert('NFT mint has been cancelled.');
+          } else if (error.message.includes('Token that already exists')) { // 이미 민트된 토큰 오류
+             alert('Token already minted.');
+          } else {
+            alert('An error occurred while running NFT mint. Please try again.');
+          }
+        }
+      }
+    }
+
+  // MetaMask 앱으로 이동 함수
+
+    if (window.ethereum) {
+  handleEthereum();
+} else {
+  window.addEventListener('ethereum#initialized', handleEthereum, {
+    once: true,
+  });
+
+  // If the event is not dispatched by the end of the timeout,
+  // the user probably doesn't have MetaMask installed.
+  setTimeout(handleEthereum, 3000); // 3 seconds
+}
+
+function handleEthereum() {
+  const { ethereum } = window;
+  if (ethereum && ethereum.isMetaMask) {
+    console.log('Ethereum successfully detected!');
+    // Access the decentralized web!
+  } else {
+    console.log('Please install MetaMask!');
+  }
+}
+
+
+    function openMetaMask() {
+      // MetaMask 설치 여부 확인 및 스토어 이동 함수
+      const checkInstallApp = () => {
+      function clearTimers() {
+      clearInterval(check);
+      clearTimeout(timer);
+      }
+
+      function isHideWeb() {
+      if (document.webkitHidden || document.hidden) {
+      clearTimers();
+      }
+    }
+      const check = setInterval(isHideWeb, 200);
+
+      const timer = setTimeout(function () {
+      redirectStore();
+      }, 500);
+    }
+
+     // 스토어로 이동하는 함수
+     const redirectStore = () => {
+     const ua = navigator.userAgent.toLowerCase();
+
+     if (window.confirm("want to go to the store?")) {
+     window.location.href =
+      ua.indexOf("android") > -1
+        ? "https://play.google.com/store/apps/details?id=io.metamask&hl=ko&gl=US&pli=1"
+        : "https://apps.apple.com/us/app/metamask-blockchain-wallet/id1438144202?l=en";
+    }
+  };
+
+  // MetaMask 앱 실행 함수
+  const exeDeepLink = () => {
+  // 모바일 기기인지 확인
+  const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+  if (!isMobileDevice) {
+    alert('You can only run the MetaMask app on your mobile device.');
+    return;
+  }
+
+  // MetaMask 앱이 설치되어 있는지 확인
+  const isMetaMaskInstalled = /Mozilla\/5.0|Mobile\/\S+ Safari/i.test(navigator.userAgent);
+
+  if (!isMetaMaskInstalled) {
+    alert('MetaMask app is not installed. Please try again after installing the app.');
+    return;
+  }
+
+  // MetaMask 앱 실행
+  let url = 'https://metamask.app.link/dapp/wisebuddhiclub.netlify.app/';
+  window.location.href = url;
+};
+    }
+
+    // 모바일용 MetaMask 연결 함수
+    async function connectMetaMaskMobile() {
+      if (typeof window.ethereum !== "undefined") {
+        try {
+          await window.ethereum.enable();
+          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          const signer = provider.getSigner();
+          walletAddress = await signer.getAddress();
+          document.getElementById("walletAddress").innerText = `Wallet Address: ${walletAddress}`;
+          showBalance();
+          showMintedAmount();
+          showMaxAmount(); // 최대 수량 정보 표시
+
+        } catch (error) {
+          if (error.code === 4001) {
+            // 사용자가 연결을 취소한 경우
+            console.log("MetaMask 연결이 취소되었습니다.");
+          } else {
+            // 기타 오류 처리
+            console.log("MetaMask 연결 오류:", error);
+          }
+        }
+      } else {
+        alert("Install MetaMask to mint an NFT.\nFor Mobile: Continue in Metamask DApp Browser");
+        // MetaMask가 설치되어 있지 않은 경우 팝업으로 메타마스크 설치 페이지 열기
+        window.open("https://metamask.io/download.html", "_blank");
+        return;
+      }
+    }
+
+    // MetaMask 연결 버튼 클릭 시 실행될 함수
+    async function onMetaMaskConnectClicked() {
+      if (/Mobi|Android/i.test(navigator.userAgent)) {
+        // 모바일 기기인 경우 모바일용 MetaMask 연결 함수를 실행
+        await connectMetaMaskMobile();
+      } else {
+        // PC인 경우 기존의 MetaMask 연결 함수를 실행
+        await checkMetaMaskConnection();
+      }
+    }
+
+    // 페이지 로드 시 초기화
+    window.addEventListener("load", function () {
+      const connectBtn = document.getElementById("connectBtn");
+      connectBtn.addEventListener("click", onMetaMaskConnectClicked);
+    });
+  </script>
+</body>
+</html>
