@@ -1,4 +1,16 @@
+[build]
+  command = "npm run build"  # 빌드 명령어 (프로젝트에 따라 변경)
+  publish = "client"  # 클라이언트 측 코드가 있는 폴더
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+[functions]
+  directory = "netlify/functions"
